@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from collections import deque
 import random
 
+from environments.custom_env import CustomEnv
+
 # Define the neural network model
 class PolicyNetwork(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -128,12 +130,13 @@ class Training:
 learning_rate = 0.01
 gamma = 0.99
 hidden_size = 128
-num_episodes = 300
+num_episodes = 500
 max_steps = 1000
 replay_buffer_size = 10000
 
 # Initialize environment and policy network
-env = gym.make('CartPole-v1')
+# env = gym.make('CartPole-v1')
+env = gym.make('CustomEnv-v0')
 input_size = env.observation_space.shape[0]
 output_size = env.action_space.n
 policy_network = PolicyNetwork(input_size, hidden_size, output_size)
