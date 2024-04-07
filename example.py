@@ -33,13 +33,17 @@ class Plotting:
         plt.show()
 
 class Training:
-    def __init__(self, policy_network, optimizer, env, gamma, max_steps, num_episodes):
+    def __init__(self, policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size):
         self.policy_network = policy_network
         self.optimizer = optimizer
         self.env = env
         self.gamma = gamma
         self.max_steps = max_steps
         self.num_episodes = num_episodes
+
+        self.replay_buffer = deque(maxlen=replay_buffer_size)
+        self.episode_rewards_list = []
+        self.episode_numbers_list = []
 
     # Function to select an action based on the policy network output
     def select_action(self, state):
@@ -71,7 +75,7 @@ class Training:
                 next_state, reward, done, _, _= self.env.step(action)
                 
                 # Store experience in replay buffer
-                replay_buffer.append((state, action, reward, next_state, done))
+                self.replay_buffer.append((state, action, reward, next_state, done))
                 
                 episode_rewards.append(reward)
                 episode_states.append(state)
@@ -82,10 +86,10 @@ class Training:
                 if done:
                     break
             
-            batch_size = min(len(replay_buffer), 32)  # Adjust batch size as needed
-            batch = random.sample(replay_buffer, batch_size)
+            batch_size = min(len(self.replay_buffer), 32)  # Adjust batch size as needed
+            batch = random.sample(self.replay_buffer, batch_size)
             states, actions, rewards, next_states, dones = zip(*batch)
-            states = torch.tensor(states, dtype=torch.float32)
+            states = torch.tensor(states)
             actions = torch.tensor(actions, dtype=torch.int64)
             rewards = torch.tensor(rewards, dtype=torch.float32)
             next_states = torch.tensor(next_states, dtype=torch.float32)
@@ -104,21 +108,17 @@ class Training:
                 state_tensor = torch.from_numpy(state).float().unsqueeze(0)
                 action_tensor = torch.tensor([action])
                 reward_tensor = torch.tensor([reward])
-                
+
                 probs = self.policy_network(state_tensor)
                 action_probs = probs.gather(1, action_tensor.unsqueeze(1))
                 loss = -torch.log(action_probs) * reward_tensor
                 loss.backward()
-            
-            # Update policy network using REINFORCE algorithm
-            optimizer.zero_grad()
-            # Compute loss and update policy network
-            # Add your training code here using the sampled batch
+
             self.optimizer.step()
             
             # store episode rewards and episode number
-            episode_rewards_list.append(sum(episode_rewards))
-            episode_numbers_list.append(episode + 1)
+            self.episode_rewards_list.append(sum(episode_rewards))
+            self.episode_numbers_list.append(episode + 1)
             
             # Print episode information
             total_reward = sum(episode_rewards)
@@ -139,17 +139,11 @@ output_size = env.action_space.n
 policy_network = PolicyNetwork(input_size, hidden_size, output_size)
 optimizer = optim.Adam(policy_network.parameters(), lr=learning_rate)
 
-# Initialize replay buffer
-replay_buffer = deque(maxlen=replay_buffer_size)
-
-episode_rewards_list = []
-episode_numbers_list = []
-
-training = Training(policy_network, optimizer, env, gamma, max_steps, num_episodes)
+training = Training(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
 training.train()
 
 # Close environment
 env.close()
 
-plotting = Plotting(episode_numbers_list, episode_rewards_list)
+plotting = Plotting(training.episode_numbers_list, training.episode_rewards_list)
 plotting.plot_training()
