@@ -1,10 +1,10 @@
 import numpy as np
 
 class Market:
-    def init(self,
-        initial_price=100, expected_walk=0, scale_walk=0.1,
-        buyer_count=10, buyer_scale=0.1,
-        seller_count=10,seller_scale=0.1):
+    def __init__(self,
+        initial_price=100, expected_walk=1, scale_walk=0.05,
+        buyer_count=10, buyer_scale=0.05,
+        seller_count=10,seller_scale=0.05):
         self.initial_price = initial_price
         self.change_expectation = expected_walk
         self.change_scale = scale_walk
@@ -13,11 +13,11 @@ class Market:
 
         self.buyer_count = buyer_count
         self.buyer_scale = buyer_scale
-        self.current_buyer_maximums = np
+        self.current_buyer_maximums = self.buyer_maximum_prices()
 
-        self.seller_count = self.seller_minimum_prices()
+        self.seller_count = seller_count
         self.seller_scale = seller_scale
-        self.current_seller_maximums = np
+        self.current_seller_minimums = self.seller_minimum_prices()
 
     def next_price(self):
         walk = np.random.normal(self.change_expectation, self.change_scale)
@@ -53,3 +53,8 @@ class Market:
     def reset(self):
         self.current_price = self.initial_price
 
+
+m = Market()
+for i in range(10):
+    print(m.next_price())
+    print(m.current_seller_minimums)
