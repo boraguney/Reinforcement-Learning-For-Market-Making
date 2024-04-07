@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import deque
+import random
 
 # Define the neural network model
 class PolicyNetwork(nn.Module):
@@ -68,6 +70,9 @@ class Training:
                 action = self.select_action(state)
                 next_state, reward, done, _, _= self.env.step(action)
                 
+                # Store experience in replay buffer
+                replay_buffer.append((state, action, reward, next_state, done))
+                
                 episode_rewards.append(reward)
                 episode_states.append(state)
                 episode_actions.append(action)
@@ -76,6 +81,15 @@ class Training:
                 
                 if done:
                     break
+            
+            batch_size = min(len(replay_buffer), 32)  # Adjust batch size as needed
+            batch = random.sample(replay_buffer, batch_size)
+            states, actions, rewards, next_states, dones = zip(*batch)
+            states = torch.tensor(states, dtype=torch.float32)
+            actions = torch.tensor(actions, dtype=torch.int64)
+            rewards = torch.tensor(rewards, dtype=torch.float32)
+            next_states = torch.tensor(next_states, dtype=torch.float32)
+            dones = torch.tensor(dones, dtype=torch.float32)
             
             discounted_rewards = self.compute_discounted_rewards(episode_rewards)
             discounted_rewards = (discounted_rewards - np.mean(discounted_rewards)) / (np.std(discounted_rewards) + 1e-9)
@@ -96,6 +110,10 @@ class Training:
                 loss = -torch.log(action_probs) * reward_tensor
                 loss.backward()
             
+            # Update policy network using REINFORCE algorithm
+            optimizer.zero_grad()
+            # Compute loss and update policy network
+            # Add your training code here using the sampled batch
             self.optimizer.step()
             
             # store episode rewards and episode number
@@ -110,8 +128,9 @@ class Training:
 learning_rate = 0.01
 gamma = 0.99
 hidden_size = 128
-num_episodes = 1000
+num_episodes = 300
 max_steps = 1000
+replay_buffer_size = 10000
 
 # Initialize environment and policy network
 env = gym.make('CartPole-v1')
@@ -119,6 +138,9 @@ input_size = env.observation_space.shape[0]
 output_size = env.action_space.n
 policy_network = PolicyNetwork(input_size, hidden_size, output_size)
 optimizer = optim.Adam(policy_network.parameters(), lr=learning_rate)
+
+# Initialize replay buffer
+replay_buffer = deque(maxlen=replay_buffer_size)
 
 episode_rewards_list = []
 episode_numbers_list = []
