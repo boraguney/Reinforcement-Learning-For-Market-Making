@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class Market:
+class MarketSimulation:
     def __init__(self,
         initial_price=100, volatility=1, time_step=0.05,
         buyer_count=10, buyer_scale=0.05,

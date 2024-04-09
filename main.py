@@ -1,13 +1,19 @@
-import gym
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import numpy as np
-import matplotlib.pyplot as plt
 from collections import deque
 import random
 
-from environments.custom_env import CustomEnv
+import gym
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+import numpy as np
+import matplotlib.pyplot as plt
+import ipdb
+
+from simulate import MarketSimulation
+
+from environments.market_env import MarketEnv
 
 # Define the neural network model
 class PolicyNetwork(nn.Module):
@@ -19,7 +25,7 @@ class PolicyNetwork(nn.Module):
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
-        return torch.softmax(x, dim=-1)
+        return x
 
 class Plotting:
     def __init__(self, episode_numbers, episode_rewards):
@@ -49,9 +55,15 @@ class Training:
 
     # Function to select an action based on the policy network output
     def select_action(self, state):
-        state = torch.from_numpy(state).float().unsqueeze(0)
-        probs = self.policy_network(state)
-        action = np.random.choice(self.env.action_space.n, p=probs.detach().numpy().flatten())
+        state_tensor = torch.from_numpy(state).float().unsqueeze(0)
+        next_state = self.policy_network(state_tensor)
+        next_state = torch.clamp(next_state, min=0, max=200)
+        
+        bid_price = next_state[0][0].item()
+        ask_price = next_state[0][1].item()
+
+        action = [bid_price, ask_price]
+
         return action
 
     # Function to compute the discounted rewards
@@ -75,14 +87,14 @@ class Training:
             for step in range(self.max_steps):
                 action = self.select_action(state)
                 next_state, reward, done, _, _= self.env.step(action)
-                
+
                 # Store experience in replay buffer
                 self.replay_buffer.append((state, action, reward, next_state, done))
-                
+
                 episode_rewards.append(reward)
                 episode_states.append(state)
                 episode_actions.append(action)
-                
+
                 state = next_state
                 
                 if done:
@@ -91,10 +103,10 @@ class Training:
             batch_size = min(len(self.replay_buffer), 32)  # Adjust batch size as needed
             batch = random.sample(self.replay_buffer, batch_size)
             states, actions, rewards, next_states, dones = zip(*batch)
-            states = torch.tensor(states)
+            states = torch.tensor(np.array(states))
             actions = torch.tensor(actions, dtype=torch.int64)
             rewards = torch.tensor(rewards, dtype=torch.float32)
-            next_states = torch.tensor(next_states, dtype=torch.float32)
+            next_states = torch.tensor(np.array(next_states), dtype=torch.float32)
             dones = torch.tensor(dones, dtype=torch.float32)
             
             discounted_rewards = self.compute_discounted_rewards(episode_rewards)
@@ -108,23 +120,31 @@ class Training:
                 reward = discounted_rewards[i]
                 
                 state_tensor = torch.from_numpy(state).float().unsqueeze(0)
-                action_tensor = torch.tensor([action])
-                reward_tensor = torch.tensor([reward])
+                output_tensor = self.policy_network(state_tensor)
+                
+                bid_price = output_tensor[0][0]
+                ask_price = output_tensor[0][1]
+                pred_tensor = torch.tensor([bid_price, ask_price, reward], dtype=torch.float32)
+                
+                max_revenue = self.env.market.get_max_revenue()
+                min_expense = self.env.market.get_min_expenses()
+                optimal_reward = max_revenue - min_expense
 
-                probs = self.policy_network(state_tensor)
-                action_probs = probs.gather(1, action_tensor.unsqueeze(1))
-                loss = -torch.log(action_probs) * reward_tensor
+                target_tensor = torch.tensor([bid_price, ask_price, optimal_reward], dtype=torch.float32, requires_grad=True)
+
+                loss_function = nn.MSELoss()
+                loss = loss_function(pred_tensor, target_tensor)
                 loss.backward()
 
             self.optimizer.step()
-            
+
             # store episode rewards and episode number
             self.episode_rewards_list.append(sum(episode_rewards))
             self.episode_numbers_list.append(episode + 1)
             
             # Print episode information
             total_reward = sum(episode_rewards)
-            print(f"Episode {episode + 1}, Total Reward: {total_reward}")
+            print(f"Episode {episode + 1}, Total Reward: {total_reward}\n\n")
 
 # Hyperparameters
 learning_rate = 0.01
@@ -134,18 +154,18 @@ num_episodes = 500
 max_steps = 1000
 replay_buffer_size = 10000
 
+market = MarketSimulation()
+
 # Initialize environment and policy network
-# env = gym.make('CartPole-v1')
-env = gym.make('CustomEnv-v0')
+env = gym.make('MarketEnv', market=market)
 input_size = env.observation_space.shape[0]
-output_size = env.action_space.n
+output_size = env.action_space.shape[0]
 policy_network = PolicyNetwork(input_size, hidden_size, output_size)
 optimizer = optim.Adam(policy_network.parameters(), lr=learning_rate)
 
 training = Training(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
 training.train()
 
-# Close environment
 env.close()
 
 plotting = Plotting(training.episode_numbers_list, training.episode_rewards_list)
