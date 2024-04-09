@@ -58,3 +58,4 @@ m = Market()
 for i in range(10):
     print(m.next_price())
     print(m.current_seller_minimums)
+    print()
