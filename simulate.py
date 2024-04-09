@@ -4,7 +4,7 @@ from pyparsing import line
 
 class MarketSimulation:
     def __init__(self,
-        initial_price=50, volatility=5, time_step=0.1,
+        initial_price=50, volatility=5, time_step=1,
         buyer_count=5, buyer_scale=0.02,
         seller_count=5,seller_scale=0.02):
         self.initial_price = initial_price
@@ -58,6 +58,12 @@ class MarketSimulation:
 
     def buyer_maximum_prices(self):
         return self.current_price * np.random.normal(1, self.buyer_scale, size=self.buyer_count)
+    
+    def get_optimal_bid_price(self):
+        return np.max(self.current_buyer_maximums)
+    
+    def get_optimal_ask_price(self):
+        return np.min(self.current_seller_minimums)
 
     def seller_minimum_prices(self):
         return self.current_price * np.random.normal(1, self.seller_scale, size=self.seller_count)
