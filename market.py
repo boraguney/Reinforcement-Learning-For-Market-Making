@@ -27,6 +27,15 @@ class Market:
         self.current_buyer_maximums = self.buyer_maximum_prices()
         self.current_seller_minimums = self.seller_minimum_prices()
         return self.current_price
+    
+    # Calculates the maximum revenue obtainable given the current buyer/seller prices
+    def get_max_revenue(self):
+        buyer_max = np.max(self.current_buyer_maximums)
+        return self.get_revenue(buyer_max)
+    
+    def get_min_expenses(self):
+        seller_min = np.min(self.current_seller_minimums)
+        return self.get_expenses(seller_min)
 
     def get_revenue(self, bid_price):
         # number of units sold * price
@@ -58,8 +67,8 @@ class Market:
 
 # m = Market()
 # prices = []
-# for i in range(1000):
-#     prices.append(m.next_price())
+# for i in range(20):
+    # prices.append(m.next_price())
     # print(m.next_price())
     # print(m.current_seller_minimums)
     # print()
