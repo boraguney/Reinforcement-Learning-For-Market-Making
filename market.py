@@ -1,13 +1,15 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Market:
     def __init__(self,
-        initial_price=100, expected_walk=1, scale_walk=0.05,
+        initial_price=100, volatility=1, time_step=0.05,
         buyer_count=10, buyer_scale=0.05,
         seller_count=10,seller_scale=0.05):
         self.initial_price = initial_price
-        self.change_expectation = expected_walk
-        self.change_scale = scale_walk
+        
+        self.volatility = volatility
+        self.time_step = time_step
 
         self.current_price = initial_price
 
@@ -20,8 +22,8 @@ class Market:
         self.current_seller_minimums = self.seller_minimum_prices()
 
     def next_price(self):
-        walk = np.random.normal(self.change_expectation, self.change_scale)
-        self.current_price = self.current_price * walk
+        increment = np.random.normal(0, self.volatility * np.sqrt(self.time_step))
+        self.current_price += increment
         self.current_buyer_maximums = self.buyer_maximum_prices()
         self.current_seller_minimums = self.seller_minimum_prices()
         return self.current_price
@@ -54,8 +56,14 @@ class Market:
         self.current_price = self.initial_price
 
 
-m = Market()
-for i in range(10):
-    print(m.next_price())
-    print(m.current_seller_minimums)
-    print()
+# m = Market()
+# prices = []
+# for i in range(1000):
+#     prices.append(m.next_price())
+    # print(m.next_price())
+    # print(m.current_seller_minimums)
+    # print()
+
+# plot prices
+# plt.plot(prices)
+# plt.show()
