@@ -6,16 +6,17 @@ import ipdb
 
 class MarketEnv(gym.Env):
     def __init__(self, market):
+        self.total_profit = 0
         self.market = market
-        
+
         low = np.array([0.0, 0.0], dtype=np.float32)
         high = np.array([200.0, 200.0], dtype=np.float32)
-        
+
         self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self.state = None
 
-    def step(self, action):        
+    def step(self, action):
         bid_price, ask_price = action
 
         revenue = self.market.get_revenue(bid_price)

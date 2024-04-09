@@ -3,12 +3,15 @@ import random
 
 import gym
 
+from matplotlib.style import available
+from sympy import plot
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import ipdb
 
 from simulate import MarketSimulation
@@ -20,12 +23,19 @@ class PolicyNetwork(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(PolicyNetwork, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, output_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size // 2)
+        self.fc3 = nn.Linear(hidden_size // 2, hidden_size // 4)
+        self.fc4 = nn.Linear(hidden_size // 4, hidden_size // 8)
+        self.fc5 = nn.Linear(hidden_size // 8, output_size)
         
     def forward(self, x):
         x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc3(x))
+        x = torch.relu(self.fc4(x))
+        x = self.fc5(x)
         return x
+
 
 class Plotting:
     def __init__(self, episode_numbers, episode_rewards):
@@ -33,10 +43,14 @@ class Plotting:
         self.episode_rewards = episode_rewards
 
     def plot_training(self):
-        plt.plot(self.episode_numbers, self.episode_rewards)
+        reg = np.polyfit(self.episode_numbers, self.episode_rewards, 1)
+        
+        plt.plot(self.episode_numbers, self.episode_rewards, label='Total Reward', color='blue')
+        plt.plot(self.episode_numbers, np.polyval(reg, self.episode_numbers), label='Regression Line', color='red')
         plt.xlabel('Episode Number')
         plt.ylabel('Total Reward')
         plt.title('Training Progress')
+        plt.legend()
         plt.grid(True)
         plt.show()
 
@@ -121,16 +135,18 @@ class Training:
                 
                 state_tensor = torch.from_numpy(state).float().unsqueeze(0)
                 output_tensor = self.policy_network(state_tensor)
-                
+
                 bid_price = output_tensor[0][0]
                 ask_price = output_tensor[0][1]
                 pred_tensor = torch.tensor([bid_price, ask_price, reward], dtype=torch.float32)
-                
+
                 max_revenue = self.env.market.get_max_revenue()
                 min_expense = self.env.market.get_min_expenses()
                 optimal_reward = max_revenue - min_expense
+                optimal_bid_price = self.env.market.get_optimal_bid_price()
+                optimal_ask_price = self.env.market.get_optimal_ask_price()
 
-                target_tensor = torch.tensor([bid_price, ask_price, optimal_reward], dtype=torch.float32, requires_grad=True)
+                target_tensor = torch.tensor([optimal_bid_price, optimal_ask_price, optimal_reward], dtype=torch.float32, requires_grad=True)
 
                 loss_function = nn.MSELoss()
                 loss = loss_function(pred_tensor, target_tensor)
@@ -144,15 +160,15 @@ class Training:
             
             # Print episode information
             total_reward = sum(episode_rewards)
-            print(f"Episode {episode + 1}, Total Reward: {total_reward}\n\n")
+            print(f"Episode {episode + 1}, Total Reward: {total_reward}")
 
 # Hyperparameters
-learning_rate = 0.01
+learning_rate = 0.001
 gamma = 0.99
-hidden_size = 128
-num_episodes = 500
-max_steps = 1000
-replay_buffer_size = 10000
+hidden_size = 10
+num_episodes = 200
+max_steps = 200
+replay_buffer_size = 1000
 
 market = MarketSimulation()
 
