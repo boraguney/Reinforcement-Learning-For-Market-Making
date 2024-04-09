@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from pyparsing import line
 
 class MarketSimulation:
     def __init__(self,
-        initial_price=100, volatility=1, time_step=0.05,
-        buyer_count=10, buyer_scale=0.05,
-        seller_count=10,seller_scale=0.05):
+        initial_price=50, volatility=5, time_step=0.1,
+        buyer_count=5, buyer_scale=0.02,
+        seller_count=5,seller_scale=0.02):
         self.initial_price = initial_price
-        
+
         self.volatility = volatility
         self.time_step = time_step
 
@@ -63,16 +64,3 @@ class MarketSimulation:
     
     def reset(self):
         self.current_price = self.initial_price
-
-
-# m = Market()
-# prices = []
-# for i in range(20):
-    # prices.append(m.next_price())
-    # print(m.next_price())
-    # print(m.current_seller_minimums)
-    # print()
-
-# plot prices
-# plt.plot(prices)
-# plt.show()
