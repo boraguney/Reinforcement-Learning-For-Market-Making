@@ -1,11 +1,7 @@
-import math
-from typing import Optional, Union
-
 import numpy as np
 
 import gym
-from gym import logger, spaces
-from gym.envs.classic_control import utils
+from gym import spaces
 
 
 class CustomEnv(gym.Env):
