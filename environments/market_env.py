@@ -1,49 +1,107 @@
+from matplotlib.pylab import f
 import numpy as np
+import torch
 
 import gym
 from gym import spaces
 import ipdb
 
 class MarketEnv(gym.Env):
-    def __init__(self, market):
+    # market is an instance of MarketSimulation
+    # history is a dictionary containing: historical bid and ask, historical profits, previous buyer and seller
+    def __init__(self, market, history, inventory, cash):
         self.total_profit = 0
         self.market = market
 
-        low = np.array([0.0, 0.0], dtype=np.float32)
-        high = np.array([200.0, 200.0], dtype=np.float32)
+        self.hist_bid = history['bid']
+        self.hist_ask = history['ask']
+        self.hist_profit = history['profit']
 
-        self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
+        self.inventory = inventory
+        self.cash = cash
+
+        obs_low = np.array([0.0, 0.0] +
+                          [0.0] * len(self.hist_bid) +
+                          [0.0] * len(self.hist_ask) +
+                          [0.0] * len(self.hist_profit) +
+                          [0.0, 0.0], dtype=np.float32)
+        obs_high = np.array([1000.0, 1000.0] +
+                          [1000.0] * len(self.hist_bid) +
+                          [1000.0] * len(self.hist_ask) +
+                          [100000.0] * len(self.hist_profit) +
+                          [100000.0, 100000.0], dtype=np.float32)
+        
+        act_low = np.array([0.0, 0.0], dtype=np.float32)
+        act_high = np.array([1000.0, 1000.0], dtype=np.float32)
+
+        self.action_space = spaces.Box(low=act_low, high=act_high, dtype=np.float32)
+        self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
         self.state = None
+
+    def compute_reward(self, revenue, expenses, change_in_inventory):
+        net_profit = revenue - expenses
+        inventory_reward = change_in_inventory * self.market.current_price
+
+        total_reward = net_profit + inventory_reward
+        
+        return total_reward
 
     def step(self, action):
         bid_price, ask_price = action
 
-        revenue = self.market.get_revenue(bid_price)
-        expenses = self.market.get_expenses(ask_price)
-        reward = revenue - expenses
+        sales = self.market.get_sales(ask_price)
+        purchases = self.market.get_purchases(bid_price)
+
+        revenue = self.market.get_revenue(ask_price)
+        expenses = self.market.get_expenses(bid_price)
+
+        change_in_inventory = purchases - sales
+        self.inventory += change_in_inventory
+        self.cash += revenue - expenses
+
+        reward = self.compute_reward(revenue, expenses, change_in_inventory)
 
         self.market.current_price = self.market.next_price()
-        self.market.current_buyer_maximums = self.market.buyer_maximum_prices()
-        self.market.current_seller_minimums = self.market.seller_minimum_prices()
+
+        # print(f"Bid price: {bid_price} \nAsk price: {ask_price}")
+        # print(f"Price: {self.market.current_price} \nInventory: {self.inventory} \nCash: {self.cash} \nReward: {reward}")
 
         # Update state
-        self.state = [bid_price, ask_price]
+        self.hist_bid.append(bid_price)
+        self.hist_ask.append(ask_price)
+        self.hist_profit.append(reward)
+
+        self.state = [bid_price, ask_price] + \
+                        self.hist_bid + \
+                        self.hist_ask + \
+                        self.hist_profit + \
+                        [self.inventory, self.cash]
+        self.state = torch.tensor(self.state, dtype=torch.float32)
 
         # Termination condition
         done = False
 
-        return np.array(self.state, dtype=np.float32), reward, done, False, {}
+        return self.state, reward, done, False, {}
 
     def reset(self, **kwargs):
         # Reset market state
         self.market.reset()
 
         # Initialize state with random bid and ask prices
-        bid_price = np.random.uniform(0, 200)
-        ask_price = np.random.uniform(0, 200)
-        self.state = [bid_price, ask_price]
+        bid_price = np.random.uniform(0, 1000)
+        ask_price = np.random.uniform(0, 1000)
 
-        return np.array(self.state, dtype=np.float32), {}
+        self.hist_bid = [bid_price]
+        self.hist_ask = [ask_price]
+        self.hist_profit = [0.0]
+
+        self.state = [bid_price, ask_price] + \
+                        self.hist_bid + \
+                        self.hist_ask + \
+                        self.hist_profit + \
+                        [self.inventory, self.cash]
+        self.state = torch.tensor(self.state, dtype=torch.float32)
+
+        return self.state, {}
 
 gym.register(id='MarketEnv', entry_point='environments.market_env:MarketEnv')
