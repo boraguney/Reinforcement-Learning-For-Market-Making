@@ -29,51 +29,36 @@ class MarketSimulation:
         self.current_buyer_maximums = self.buyer_maximum_prices()
         self.current_seller_minimums = self.seller_minimum_prices()
         return self.current_price
-    
-    # Calculates the maximum revenue obtainable given the current buyer/seller prices
-    def get_max_revenue(self):
-        buyer_max = np.max(self.current_buyer_maximums)
-        return self.get_revenue(buyer_max)
-    
-    def get_min_expenses(self):
-        seller_min = np.min(self.current_seller_minimums)
-        return self.get_expenses(seller_min)
+
+
 
     def get_revenue(self, ask_price):
         # number of units sold * price
-        return ask_price * self.get_agent_sales(ask_price)
+        return ask_price * self.get_sales(ask_price)
 
     def get_expenses(self, bid_price):
         # number of units purchased * price
-        return bid_price * self.get_agent_purchases(bid_price)
+        return bid_price * self.get_purchases(bid_price)
+    
+
 
 
     def get_sales(self, ask_price):
-        # number of units sold
-        return self.get_agent_sales(ask_price)
-
-    def get_purchases(self, bid_price):
-        # number of units purchased
-        return self.get_agent_purchases(bid_price)
-
-    def get_agent_purchases(self, bid_price):
-        # agent declares they will buy at bid price
-        # sellers will sell if it's above their minimum
-        return torch.sum(bid_price >= torch.tensor(self.current_seller_minimums, requires_grad=False))
-
-    def get_agent_sales(self, ask_price):
         # agent declares they will sell at ask price
         # buyers will purchase if it's below their maximum
         return torch.sum(ask_price <= torch.tensor(self.current_buyer_maximums, requires_grad=False))
 
+    def get_purchases(self, bid_price):
+        # number of units purchased
+        # agent declares they will buy at bid price
+        # sellers will sell if it's above their minimum
+        return torch.sum(bid_price >= torch.tensor(self.current_seller_minimums, requires_grad=False))
+
+
+
+
     def buyer_maximum_prices(self):
         return self.current_price * np.random.normal(1, self.buyer_scale, size=self.buyer_count)
-    
-    def get_optimal_bid_price(self):
-        return np.max(self.current_buyer_maximums)
-    
-    def get_optimal_ask_price(self):
-        return np.min(self.current_seller_minimums)
 
     def seller_minimum_prices(self):
         return self.current_price * np.random.normal(1, self.seller_scale, size=self.seller_count)
