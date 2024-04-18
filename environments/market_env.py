@@ -17,8 +17,11 @@ class MarketEnv(gym.Env):
         self.hist_ask = history['ask']
         self.hist_profit = history['profit']
 
-        self.inventory = inventory
-        self.cash = cash
+        self.inventory = torch.tensor(inventory, requires_grad=True, dtype=torch.float32)
+        self.cash = torch.tensor(cash, requires_grad=True, dtype=torch.float32)
+
+        self.init_cash = cash
+        self.init_inventory = inventory
 
         obs_low = np.array([0.0, 0.0] +
                           [0.0] * len(self.hist_bid) +
@@ -38,9 +41,9 @@ class MarketEnv(gym.Env):
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
         self.state = None
 
-    def compute_reward(self, revenue, expenses, change_in_inventory):
-        net_profit = revenue - expenses
-        inventory_reward = change_in_inventory * self.market.current_price
+    def compute_reward(self):
+        net_profit = self.cash - 1000
+        inventory_reward = self.inventory * self.market.current_price
 
         total_reward = net_profit + inventory_reward
         
@@ -56,10 +59,10 @@ class MarketEnv(gym.Env):
         expenses = self.market.get_expenses(bid_price)
 
         change_in_inventory = purchases - sales
-        self.inventory += change_in_inventory
-        self.cash += revenue - expenses
+        self.inventory = self.inventory + change_in_inventory
+        self.cash = self.cash + revenue - expenses
 
-        reward = self.compute_reward(revenue, expenses, change_in_inventory)
+        reward = self.compute_reward()
 
         self.market.current_price = self.market.next_price()
 
@@ -90,6 +93,10 @@ class MarketEnv(gym.Env):
         # Initialize state with random bid and ask prices
         bid_price = np.random.uniform(0, 1000)
         ask_price = np.random.uniform(0, 1000)
+
+
+        self.inventory = torch.tensor(self.init_inventory, requires_grad=True, dtype=torch.float32)
+        self.cash = torch.tensor(self.init_cash, requires_grad=True, dtype=torch.float32)
 
         self.hist_bid = [bid_price]
         self.hist_ask = [ask_price]
