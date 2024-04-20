@@ -30,6 +30,8 @@ class TrainingSimpleModel:
         self.replay_buffer = deque(maxlen=replay_buffer_size)
         self.episode_rewards_list = []
         self.episode_numbers_list = []
+        self.episode_agent = []
+        self.steps_till_stop = []
 
     # Function to select an action based on the policy network output
     def select_action(self, state):
@@ -97,10 +99,8 @@ class TrainingSimpleModel:
             self.optimizer.step()
 
             # store episode rewards and episode number
-            self.episode_rewards_list.append(sum(episode_rewards))
+            self.episode_rewards_list.append(reward)
             self.episode_numbers_list.append(episode + 1)
-            print(f"Ask {self.env.hist_ask[-1]}")
-            print(F"Bid {self.env.hist_bid[-1]}")
 
             # Print episode information
             

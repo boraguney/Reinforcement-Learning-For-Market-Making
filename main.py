@@ -5,6 +5,7 @@ import gym
 
 from matplotlib.style import available
 from sympy import plot
+from models.simple_model import TrainingSimpleModel
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -57,14 +58,14 @@ class Plotting:
         plt.xlabel('Episode Number')
         plt.ylabel('Profit')
         plt.title('Training Progress')
-
+        '''
         plt.figure()
         plt.plot(self.episode_numbers, self.steps_till_stop, label='Steps till stop', color='red')
         plt.xlabel('Episode Number')
         plt.ylabel('Steps Till Stop')
         plt.title('Training Progress')
-
         plt.figure()
+
         plt.plot(self.episode_numbers, cumulative_profits, label='Cumulative Profit', color='green')
         plt.xlabel('Episode Number')
         plt.ylabel('Cumulative Profit')
@@ -75,6 +76,7 @@ class Plotting:
         plt.xlabel('Episode Number')
         plt.ylabel('Cash')
         plt.title('Training Progress')
+        '''
 
         plt.show()
 
@@ -231,7 +233,7 @@ policy_network = PolicyNetwork(input_size, hidden_size, output_size)
 optimizer = optim.Adam(policy_network.parameters(), lr=learning_rate)
 torch.autograd.set_detect_anomaly(True)
 
-training = Training(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
+training = TrainingSimpleModel(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
 training.train()
 
 env.close()

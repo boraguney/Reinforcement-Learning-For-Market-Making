@@ -52,15 +52,9 @@ class MarketEnv(gym.Env):
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
         self.state = None
 
-<<<<<<< HEAD
     def compute_reward(self):
         net_profit = self.cash - 1000
-        inventory_reward = self.inventory * self.market.current_price
-=======
-    def compute_reward(self, revenue, expenses, change_in_inventory):
-        net_profit = revenue - expenses
-        inventory_value = change_in_inventory * self.market.current_price
->>>>>>> 59bc5d8859c8af2890db3925d10b58137c30ca98
+        inventory_value = self.inventory * self.market.current_price
 
         total_reward = net_profit - inventory_value
         
@@ -108,8 +102,8 @@ class MarketEnv(gym.Env):
         # Reset market state
         self.market.reset()
 
-        self.inventory = torch.tensor(self.init_inventory, requires_grad=true, dtype=torch.float32)
-        self.cash = torch.tensor(self.init_cash, requires_grad=true, dtype=torch.float32)
+        self.inventory = torch.tensor(self.init_inventory, requires_grad=True, dtype=torch.float32)
+        self.cash = torch.tensor(self.init_cash, requires_grad=True, dtype=torch.float32)
 
         # Initialize state with random bid and ask prices
         bid_price = np.random.uniform(0, MAX_PRICE)
