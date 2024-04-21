@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from pyparsing import line
 import torch
 
+np.random.seed(0)
+
 class MarketSimulation:
     def __init__(self,
         initial_price=50, volatility=5, time_step=1,

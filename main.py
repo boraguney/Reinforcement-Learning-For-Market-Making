@@ -3,16 +3,13 @@ import random
 
 import gym
 
-from matplotlib.style import available
 from sympy import plot
-from models.simple_model import TrainingSimpleModel
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import ipdb
 
 from simulate import MarketSimulation
@@ -39,44 +36,79 @@ class PolicyNetwork(nn.Module):
     def adjust_input_size(self, new_input_size):
         self.fc1 = nn.Linear(new_input_size, self.hidden_size)
 
-class Plotting:
-    def __init__(self, episode_numbers, episode_rewards, steps_till_stop, agent):
+class Export:
+    def __init__(self, episode_numbers, episode_rewards, steps_till_stop, true_asset_price, bid_prices, ask_prices):
         self.episode_numbers = episode_numbers
         self.episode_rewards = episode_rewards
         self.steps_till_stop = steps_till_stop
-        self.cash = [agent['cash'] for agent in agent]
+        self.true_asset_price = true_asset_price
+        self.bid_prices = bid_prices
+        self.ask_prices = ask_prices
+
+        self.numpy_rewards = np.array([reward.detach().numpy() for reward in self.episode_rewards])
+
+    def statistics(self):
+        # total rewards
+
+        # average rewards per episode
+
+        # ecdf of rewards over time
+
+        # average steps till stop
+
+        # ecdf of steps till stop
+
+        # standard deviation of rewards
+
+        # standard deviation of steps till stop
+
+        # frequency of profitable trades versus losing trades, and the magnitudes of each
+
+        # largest peak-to-trough decline in cumulative reward for each model
+
+        # Bid-Ask Spreads
+
+        # Cash Utilization
+
+        # Inventory Utilization
+
+        pass
 
     def plot_training(self):
-        detached_rewards = [reward.detach().numpy() for reward in self.episode_rewards]
-        numpy_rewards = np.array(detached_rewards)
-        cumulative_profits = np.cumsum(numpy_rewards)
-
-        detached_cash = [cash.detach().numpy() for cash in self.cash]
+        cumulative_rewards = np.cumsum(self.numpy_rewards)
 
         plt.figure()
-        plt.plot(self.episode_numbers, numpy_rewards, label='Total Reward', color='blue')
+        plt.plot(self.episode_numbers, self.numpy_rewards, color='blue')
         plt.xlabel('Episode Number')
-        plt.ylabel('Profit')
+        plt.ylabel('Reward per Episode')
         plt.title('Training Progress')
-        '''
+        plt.savefig('training_progress.pdf')
+
         plt.figure()
-        plt.plot(self.episode_numbers, self.steps_till_stop, label='Steps till stop', color='red')
+        plt.plot(self.episode_numbers, self.steps_till_stop, color='red')
         plt.xlabel('Episode Number')
         plt.ylabel('Steps Till Stop')
         plt.title('Training Progress')
-        plt.figure()
-
-        plt.plot(self.episode_numbers, cumulative_profits, label='Cumulative Profit', color='green')
-        plt.xlabel('Episode Number')
-        plt.ylabel('Cumulative Profit')
-        plt.title('Training Progress')
+        plt.savefig('steps_till_stop.pdf')
 
         plt.figure()
-        plt.plot(self.episode_numbers, detached_cash, label='Cash', color='purple')
+        plt.plot(self.episode_numbers, cumulative_rewards, color='green')
         plt.xlabel('Episode Number')
-        plt.ylabel('Cash')
+        plt.ylabel('Cumulative Reward')
         plt.title('Training Progress')
-        '''
+        plt.savefig('cumulative_reward.pdf')
+
+        # plt.figure()
+        # plt.plot(self.true_asset_price, color='black', linewidth=2)
+        # for i, (bid_prices, ask_prices) in enumerate(zip(self.bid_prices, self.ask_prices)):
+        #     x_values = [i] * len(bid_prices)
+        #     plt.plot(x_values, bid_prices, 'ro', alpha=0.5, markersize=2.5)
+        #     plt.plot(x_values, ask_prices, 'bo', alpha=0.5, markersize=2.5)
+        # plt.xlabel('Time')
+        # plt.ylabel('Asset Price')
+        # plt.title('Asset Price')
+        # plt.legend(['Asset Price', 'Bid Prices', 'Ask Prices'])
+        # plt.savefig('asset_price.png')
 
         plt.show()
 
@@ -90,10 +122,13 @@ class Training:
         self.num_episodes = num_episodes
 
         self.replay_buffer = deque(maxlen=replay_buffer_size)
+
         self.episode_rewards_list = []
         self.episode_numbers_list = []
-        self.episode_agent = []
         self.steps_till_stop = []
+        self.true_asset_price = []
+        self.bid_prices = []
+        self.ask_prices = []
 
     # Function to select an action based on the policy network output
     def select_action(self, state):
@@ -115,13 +150,12 @@ class Training:
         return discounted_rewards
 
     # min loss, so we maximize profit
-    def loss_function(self, revenue, expenses, inventory, current_price, cash, bid_price, ask_price):
+    def loss_function(self, revenue, expenses, inventory, current_price, cash, only_profit=False):
         min_cash = 100
         max_inventory = 100
 
         # Compute profit and inventory value
         profit = revenue - expenses
-        inventory_value = inventory * current_price
 
         # Penalize low cash and high inventory
         cash_penalty = max(0, min_cash - cash)
@@ -130,19 +164,18 @@ class Training:
         # Encourage profit
         profit_reward = -profit
 
-        # spread = ask_price - bid_price
-
-        # Combine penalties and reward to form the loss function
-        loss = profit_reward + cash_penalty + inventory_penalty
-        return loss
+        if only_profit:
+            return profit_reward
+        else:
+            # Combine penalties and reward to form the loss function
+            loss = profit_reward + cash_penalty + inventory_penalty
+            return loss
 
     # Main loop
     def train(self):
         for episode in range(self.num_episodes):
             state, _ = self.env.reset()
             episode_rewards = []
-            episode_cash = []
-            episode_inventory = []
 
             episode_states = []
             episode_actions = []
@@ -152,13 +185,13 @@ class Training:
                 step += 1
                 action = self.select_action(state)
                 next_state, reward, done, _, _= self.env.step(action)
+                self.true_asset_price.append(self.env.market.current_price)
+                self.bid_prices.append(self.env.market.current_buyer_maximums)
+                self.ask_prices.append(self.env.market.current_buyer_maximums)
 
                 episode_rewards.append(reward)
                 episode_states.append(state)
                 episode_actions.append(action)
-
-                episode_cash.append(self.env.cash)
-                episode_inventory.append(self.env.inventory)
 
                 state = next_state
 
@@ -184,31 +217,25 @@ class Training:
             expenses = env.market.get_expenses(action[0])
             revenue = env.market.get_revenue(action[1])
 
-            loss = self.loss_function(revenue, expenses, inventory, current_price, state[-1], action[0], action[1])
+            loss = self.loss_function(revenue, expenses, inventory, current_price, state[-1])
             loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm_(self.policy_network.parameters(), 0.5)
             self.optimizer.step()
 
             # store episode rewards and episode number
             self.episode_rewards_list.append(sum(episode_rewards))
-            self.episode_agent.append(
-                {
-                    'cash': sum(episode_cash),
-                    'inventory': sum(episode_inventory)
-                }
-            )
             self.episode_numbers_list.append(episode + 1)
 
             # Print episode information
             total_reward = sum(episode_rewards)
-            
+
             print(f"Episode {episode + 1}, Total Reward: {total_reward}, Steps: {step}")
 
 # Hyperparameters
 learning_rate = 0.001
 gamma = 0.99
 hidden_size = 20
-num_episodes = 200
+num_episodes = 400
 max_steps = 500
 replay_buffer_size = 1000
 
@@ -233,10 +260,10 @@ policy_network = PolicyNetwork(input_size, hidden_size, output_size)
 optimizer = optim.Adam(policy_network.parameters(), lr=learning_rate)
 torch.autograd.set_detect_anomaly(True)
 
-training = TrainingSimpleModel(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
+training = Training(policy_network, optimizer, env, gamma, max_steps, num_episodes, replay_buffer_size)
 training.train()
 
 env.close()
 
-plotting = Plotting(training.episode_numbers_list, training.episode_rewards_list, training.steps_till_stop, training.episode_agent)
-plotting.plot_training()
+export = Export(training.episode_numbers_list, training.episode_rewards_list, training.steps_till_stop, training.true_asset_price, training.bid_prices, training.ask_prices)
+export.plot_training()

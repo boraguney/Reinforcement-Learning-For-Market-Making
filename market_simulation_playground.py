@@ -21,5 +21,5 @@ for i, (bid_prices, ask_prices) in enumerate(zip(all_bid_prices, all_ask_prices)
     plt.plot(x_values, bid_prices, 'ro', alpha=0.5, markersize=2.5)
     plt.plot(x_values, ask_prices, 'bo', alpha=0.5, markersize=2.5)
 
-plt.legend(['Asset Price', 'Bid Prices', 'Ask Prices'])  
+plt.legend(['Asset Price', 'Bid Prices', 'Ask Prices'])
 plt.show()
