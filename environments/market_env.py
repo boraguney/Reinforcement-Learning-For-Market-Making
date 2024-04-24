@@ -54,9 +54,8 @@ class MarketEnv(gym.Env):
 
     def compute_reward(self):
         net_profit = self.cash - 1000
-        inventory_value = self.inventory * self.market.current_price
 
-        total_reward = net_profit + inventory_value
+        total_reward = net_profit
         
         return total_reward
 
