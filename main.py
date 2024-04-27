@@ -1,3 +1,4 @@
+from calendar import c
 from collections import deque
 import pdb
 
@@ -9,6 +10,7 @@ import torch.optim as optim
 
 import numpy as np
 import matplotlib.pyplot as plt
+import mplfinance as mpf
 import ipdb
 
 from simulate import MarketSimulation
@@ -43,14 +45,18 @@ class Export:
         self.episode_numbers = [ training_penalty.episode_numbers_list, training_no_penalty.episode_numbers_list ]
         self.episode_rewards = [ training_penalty.episode_rewards_list, training_no_penalty.episode_rewards_list ]
         self.episode_actions = [ training_penalty.episode_actions_list, training_no_penalty.episode_actions_list ]
+
         self.steps_till_stop = [ training_penalty.steps_till_stop, training_no_penalty.steps_till_stop ]
         self.true_asset_price = [ training_penalty.true_asset_price, training_no_penalty.true_asset_price ]
 
-        # use tensor.detach().numpy() to convert tensor to numpy array
-        # [ [ reward.detach().numpy() for reward in rewards ] for rewards in self.episode_rewards ]
         self.numpy_rewards = []
+        self.numpy_bids = []
+        self.numpy_asks = []
+
         for i in range(2):
             self.numpy_rewards.append([ reward.detach().numpy() for reward in self.episode_rewards[i] ])
+            self.numpy_bids.append([ action[0][0].detach().numpy() for action in self.episode_actions[i] ])
+            self.numpy_asks.append([ action[0][1].detach().numpy() for action in self.episode_actions[i] ])
 
     def plot_training(self):
         cumulative_rewards_penalty = np.cumsum(self.numpy_rewards[0])
@@ -59,37 +65,96 @@ class Export:
         cumulative_rewards_no_penalty = np.cumsum(self.numpy_rewards[1])
         cumulative_steps_no_penalty = np.cumsum(self.steps_till_stop[1])
 
-        plt.figure()
+        diff_ask_bid_penalty = np.array(self.numpy_asks[0]) - np.array(self.numpy_bids[0])
+        diff_ask_bid_no_penalty = np.array(self.numpy_asks[1]) - np.array(self.numpy_bids[1])
+
+        # set global plot font size
+        plt.rcParams.update({'font.size': 14})
+
+
+
+
+
+        # show the ask-bid spread over time, per 20 episodes. So make 1 plot and divide it into total number of episodes / 20. Each part has two box plots, one for penalty and one for no penalty
+        plt.figure(figsize=(10, 4))
+        num_parts = len(self.episode_numbers[0]) // 20
+        # Create lists to store data for penalty and no penalty
+        data_penalty = []
+        data_no_penalty = []
+
+        # Loop through each part
+        for i in range(num_parts):
+            # Calculate the start and end indices for this part
+            start_index = i * 20
+            end_index = (i + 1) * 20
+
+            # Extract the data for this part
+            diff_ask_bid_penalty_part = diff_ask_bid_penalty[start_index:end_index]
+            diff_ask_bid_no_penalty_part = diff_ask_bid_no_penalty[start_index:end_index]
+
+            # Append data to lists
+            data_penalty.append(diff_ask_bid_penalty_part)
+            data_no_penalty.append(diff_ask_bid_no_penalty_part)
+
+        # Create box plots for penalty and no penalty side-by-side
+        plt.boxplot(data_penalty, positions=[i*2 for i in range(num_parts)], labels=[f"{i*20+1}-{(i+1)*20}" for i in range(num_parts)], widths=0.2, boxprops=dict(color='blue'))
+        plt.boxplot(data_no_penalty, positions=[i*2+0.4 for i in range(num_parts)], widths=0.2, boxprops=dict(color='red'))
+
+        # Add labels and title
+        plt.xlabel('Range of Episodes (Inclusive)')
+        plt.ylabel('Ask-Bid Spread')
+        plt.xticks([i*2+0.4 for i in range(num_parts)], [f"{i*20+1}-{(i+1)*20}" for i in range(num_parts)], rotation=45)
+
+        plt.legend(['Penalty', 'No Penalty'], loc='lower right')
+        plt.tight_layout()
+        plt.savefig('ask_bid_spread_over_time.pdf')
+
+
+
+
+
+
+        plt.figure(figsize=(10, 4))
         plt.plot(self.episode_numbers[0], self.numpy_rewards[0], color='blue', alpha=0.5, label = 'Penalty')
         plt.plot(self.episode_numbers[1], self.numpy_rewards[1], color='red', alpha=0.5, label = 'No Penalty')
         plt.xlabel('Episode Number')
         plt.ylabel('Reward')
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
         plt.legend()
+        plt.tight_layout()
         plt.savefig('reward.pdf')
 
-        plt.figure()
-        plt.plot(self.episode_numbers[0], self.steps_till_stop[0], color='blue', alpha=0.5, label = 'Penalty')
-        plt.plot(self.episode_numbers[1], self.steps_till_stop[1], color='red', alpha=0.5, label = 'No Penalty')
-        plt.xlabel('Episode Number')
-        plt.ylabel('Steps')
-        plt.legend()
-        plt.savefig('steps.pdf')
 
-        plt.figure()
+
+
+
+        plt.figure(figsize=(10, 4))
         plt.plot(self.episode_numbers[0], cumulative_rewards_penalty, color='blue', alpha=0.5, label = 'Penalty')
         plt.plot(self.episode_numbers[1], cumulative_rewards_no_penalty, color='red', alpha=0.5, label = 'No Penalty')
         plt.xlabel('Episode Number')
         plt.ylabel('Cumulative Reward')
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
         plt.legend()
+        plt.tight_layout()
         plt.savefig('cumulative_reward.pdf')
 
-        plt.figure()
+
+
+
+
+        plt.figure(figsize=(10, 4))
         plt.plot(self.episode_numbers[0], cumulative_steps_penalty, color='blue', alpha=0.5, label = 'Penalty')
         plt.plot(self.episode_numbers[1], cumulative_steps_no_penalty, color='red', alpha=0.5, label = 'No Penalty')
         plt.xlabel('Episode Number')
         plt.ylabel('Cumulative Steps')
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
         plt.legend()
+        plt.tight_layout()
         plt.savefig('cumulative_steps.pdf')
+
+
+
+
 
         plt.show()
 
@@ -220,9 +285,10 @@ class Training:
 learning_rate = 0.001
 gamma = 0.99
 hidden_size = 20
-# num_episodes = 20
 num_episodes = 400
-max_steps = 500
+# num_episodes = 80
+max_steps = 200
+# max_steps = 10
 replay_buffer_size = 1000
 
 market = MarketSimulation()
